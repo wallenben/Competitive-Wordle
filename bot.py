@@ -9,41 +9,41 @@ intents = discord.Intents.all()
 intents.members = True
 bot = commands.Bot(command_prefix='!', intents=intents)
 
+now = datetime.now()
+
+channel = bot.get_channel('id')
+
 
 @bot.event
 async def on_ready():
     print(f'{bot.user} has connected to Discord!')
-    channel = bot.get_channel('<channel_id>')
-
     await channel.edit(topic="HIGH SCORE: undefined 6/6")
-    while True:
-        now = datetime.now()
-        if now.hour == 23 and now.minute == 59:
-            try:
-                await channel.edit(topic='HIGH SCORE: undefined 6/6')
-            except discord.errors.HTTPException as ex:
-                if ex.status == 429:
-                    retry_after = ex.retry_after
-                    print(
-                        "[ERROR] Too Many Requests, retrying after %d seconds." % retry_after)
-                    time.sleep(retry_after)
-                    await channel.edit(topic='HIGH SCORE: undefined 6/6')
-        await asyncio.sleep(60)
 
 
 @bot.event
 async def on_message(message):
+    if now.hour == 23 and now.minute == 59 or message.content == '!reset':
+        try:
+            await channel.edit(topic='HIGH SCORE: undefined 6/6')
+        except discord.errors.HTTPException as ex:
+            if ex.status == 429:
+                retry_after = ex.retry_after
+                print(
+                    "[ERROR] Too Many Requests, retrying after %d seconds." % retry_after)
+                time.sleep(retry_after)
+                await channel.edit(topic='HIGH SCORE: undefined 6/6')
     if message.channel.name == 'wordle':
-        fraction_match = re.search(r'(\d+)/(\d+)', message.content)
-        if fraction_match:
-            numerator = int(fraction_match.group(1))
-            denominator = int(fraction_match.group(2))
+        pattern = re.compile(
+            r'(Scoredle|Wordle)\s(\d+|X|x)\s?(\d)?\/(\d)\*?\n?\n(\d+,\d+)?(\n[⬛🟩🟨]+\s(\d+)|\n[⬛🟩🟨]+){1,6}')
+        match = re.match(pattern, message.content)
+        if match:
+            numerator = int(match.group(2))
+            denominator = 6
             current_topic = message.channel.topic
             score_match = re.search(r'(\d+)/(\d+)', current_topic)
             if score_match:
                 current_numerator = int(score_match.group(1))
-                current_denominator = int(score_match.group(2))
-                if numerator / denominator < current_numerator / current_denominator:
+                if numerator < current_numerator:
                     try:
                         await message.channel.edit(topic=f'HIGH SCORE: {message.author} {numerator}/{denominator}')
                     except discord.errors.HTTPException as ex:
@@ -53,4 +53,5 @@ async def on_message(message):
                                 "[ERROR] Too Many Requests, retrying after %d seconds." % retry_after)
                             time.sleep(retry_after)
                             await message.channel.edit(topic=f'HIGH SCORE: {message.author} {numerator}/{denominator}')
-bot.run('<token>')
+# Replace <token> with your Discord bot token
+bot.run('token')
